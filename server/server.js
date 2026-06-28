@@ -20,8 +20,11 @@ app.get("/api/health", (req, res) => {
 // Routes
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/donors", require("./routes/donorRoutes"));
-// app.use("/api/hospitals", require("./routes/hospitalRoutes"));
-// app.use("/api/requests", require("./routes/bloodRequestRoutes"));
+app.use("/api/hospitals", require("./routes/hospitalRoutes"));
+app.use("/api/bloodbanks", require("./routes/bloodBankRoutes"));
+app.use("/api/inventory", require("./routes/inventoryRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/api/requests", require("./routes/bloodRequestRoutes"));
 
 // Error handling (must be after routes)
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
