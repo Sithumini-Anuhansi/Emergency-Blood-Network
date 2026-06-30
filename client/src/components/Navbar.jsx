@@ -1,4 +1,5 @@
 import { useAuth } from "../context/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 const roleLabels = {
   donor: "Donor",
@@ -17,6 +18,7 @@ const Navbar = ({ title }) => {
         {title && <p className="text-sm text-gray-400">{title}</p>}
       </div>
       <div className="flex items-center gap-4">
+        <NotificationBell />
         <div className="text-right">
           <p className="text-sm font-medium text-gray-700">{user?.fullName}</p>
           <p className="text-xs text-gray-400">{roleLabels[user?.role]}</p>
