@@ -1,6 +1,7 @@
 const Donor = require("../models/Donor");
 const User = require("../models/User");
 const Donation = require("../models/Donation");
+const { predictEligibility } = require("../utils/aiClient");
 
 // @desc    Get logged-in donor's own profile
 // @route   GET /api/donors/me
@@ -48,8 +49,27 @@ const updateMyDonorProfile = async (req, res, next) => {
       }
     });
 
+    // Recompute eligibility via the AI microservice whenever medically relevant
+    // fields change. Falls back silently to the existing eligibility value if
+    // the AI service is unreachable, so profile updates never hard-fail on it.
+    const daysSinceLastDonation = donor.lastDonationDate
+      ? Math.floor((Date.now() - new Date(donor.lastDonationDate)) / (1000 * 60 * 60 * 24))
+      : 9999; // never donated -> treat as fully recovered for recency purposes
+
+    const aiResult = await predictEligibility({
+      age: donor.age,
+      gender: donor.gender,
+      weight: donor.weight,
+      hemoglobin: donor.hemoglobin,
+      days_since_last_donation: daysSinceLastDonation,
+    });
+
+    if (aiResult) {
+      donor.eligibility = aiResult.eligible;
+    }
+
     await donor.save();
-    res.json(donor);
+    res.json({ ...donor.toObject(), aiPrediction: aiResult });
   } catch (error) {
     next(error);
   }

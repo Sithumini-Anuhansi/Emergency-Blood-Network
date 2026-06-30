@@ -3,6 +3,7 @@ const Hospital = require("../models/Hospital");
 const Donor = require("../models/Donor");
 const Donation = require("../models/Donation");
 const Notification = require("../models/Notification");
+const { rankDonors } = require("../utils/aiClient");
 
 // @desc    Create a new blood request
 // @route   POST /api/requests
@@ -215,6 +216,85 @@ const cancelRequest = async (req, res, next) => {
   }
 };
 
+// @desc    Get AI-ranked candidate donors for a specific request
+// @route   GET /api/requests/:id/ranked-donors
+// @access  Private (bloodbank, admin)
+const getRankedDonors = async (req, res, next) => {
+  try {
+    const request = await BloodRequest.findById(req.params.id);
+    if (!request) {
+      res.status(404);
+      throw new Error("Blood request not found");
+    }
+
+    const urgencyScoreMap = { low: 0, medium: 1, high: 2, critical: 3 };
+
+    // Candidate pool: same blood group, available + eligible donors.
+    // Cast a slightly wider net than a strict district match so the AI model
+    // has something meaningful to rank rather than a single obvious choice.
+    const candidates = await Donor.find({
+      bloodGroup: request.bloodGroup,
+      availability: true,
+      eligibility: true,
+    }).populate("userId", "fullName phone district");
+
+    if (candidates.length === 0) {
+      return res.json({ rankedDonors: [], message: "No available, eligible donors match this blood group" });
+    }
+
+    const donorPayload = candidates
+      .filter((d) => d.userId) // guard against orphaned donor docs
+      .map((d) => ({
+        donor_id: d._id.toString(),
+        blood_group: d.bloodGroup,
+        district: d.userId.district,
+        availability: d.availability,
+        eligibility: d.eligibility,
+        age: d.age,
+        days_since_last_donation: d.lastDonationDate
+          ? Math.floor((Date.now() - new Date(d.lastDonationDate)) / (1000 * 60 * 60 * 24))
+          : 9999,
+      }));
+
+    const aiResult = await rankDonors({
+      requestBloodGroup: request.bloodGroup,
+      requestDistrict: request.district,
+      urgencyScore: urgencyScoreMap[request.urgency] ?? 1,
+      donors: donorPayload,
+    });
+
+    if (!aiResult) {
+      // AI service unreachable - fall back to returning the unranked candidate list
+      // so the admin can still manually assign instead of being fully blocked.
+      const fallback = candidates.map((d) => ({
+        donor_id: d._id,
+        fullName: d.userId.fullName,
+        phone: d.userId.phone,
+        district: d.userId.district,
+        match_score: null,
+      }));
+      return res.json({ rankedDonors: fallback, aiAvailable: false });
+    }
+
+    // Merge AI scores back with donor display info
+    const donorMap = Object.fromEntries(candidates.map((d) => [d._id.toString(), d]));
+    const rankedDonors = aiResult.ranked_donors.map((r) => {
+      const d = donorMap[r.donor_id];
+      return {
+        donor_id: r.donor_id,
+        match_score: r.match_score,
+        fullName: d.userId.fullName,
+        phone: d.userId.phone,
+        district: d.userId.district,
+      };
+    });
+
+    res.json({ rankedDonors, aiAvailable: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createBloodRequest,
   getMyRequests,
@@ -223,4 +303,5 @@ module.exports = {
   assignDonor,
   fulfillRequest,
   cancelRequest,
+  getRankedDonors,
 };
