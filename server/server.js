@@ -25,6 +25,7 @@ app.use("/api/bloodbanks", require("./routes/bloodBankRoutes"));
 app.use("/api/inventory", require("./routes/inventoryRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/requests", require("./routes/bloodRequestRoutes"));
+app.use("/api/temperature", require("./routes/temperatureRoutes"));
 
 // Error handling (must be after routes)
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");

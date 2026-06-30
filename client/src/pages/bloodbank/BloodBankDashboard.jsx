@@ -4,6 +4,7 @@ import api from "../../api/axios";
 import Navbar from "../../components/Navbar";
 import StatusBadge from "../../components/StatusBadge";
 import AddInventoryModal from "./AddInventoryModal";
+import TemperatureMonitor from "./TemperatureMonitor";
 
 const bloodGroupOrder = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
@@ -70,6 +71,10 @@ const BloodBankDashboard = () => {
               <p className="text-xs text-gray-400">units</p>
             </div>
           ))}
+        </div>
+
+        <div className="mb-8">
+          <TemperatureMonitor />
         </div>
 
         <div className="flex justify-between items-center mb-4">
