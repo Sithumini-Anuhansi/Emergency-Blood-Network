@@ -8,6 +8,7 @@ const {
   assignDonor,
   fulfillRequest,
   cancelRequest,
+  getRankedDonors,
 } = require("../controllers/bloodRequestController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
@@ -22,6 +23,9 @@ router.get("/", protect, authorize("bloodbank", "admin"), getAllRequests);
 
 // Get single request
 router.get("/:id", protect, authorize("hospital", "bloodbank", "admin"), getRequestById);
+
+// AI-ranked candidate donors for this request (must come before /:id/assign in spirit, but distinct path so no collision)
+router.get("/:id/ranked-donors", protect, authorize("bloodbank", "admin"), getRankedDonors);
 
 // Assign a donor (manual match, pre-AI)
 router.put("/:id/assign", protect, authorize("bloodbank", "admin"), assignDonor);
