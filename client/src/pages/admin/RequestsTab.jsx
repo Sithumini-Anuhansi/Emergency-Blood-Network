@@ -11,6 +11,7 @@ const RequestsTab = () => {
   const [assignModal, setAssignModal] = useState(null); // holds the request being assigned
   const [matchingDonors, setMatchingDonors] = useState([]);
   const [loadingDonors, setLoadingDonors] = useState(false);
+  const [aiAvailable, setAiAvailable] = useState(true);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -38,12 +39,11 @@ const RequestsTab = () => {
     setAssignModal(request);
     setLoadingDonors(true);
     try {
-      const { data } = await api.get("/donors", {
-        params: { bloodGroup: request.bloodGroup, district: request.district, availability: true, eligibility: true },
-      });
-      setMatchingDonors(data.donors);
+      const { data } = await api.get(`/requests/${request._id}/ranked-donors`);
+      setMatchingDonors(data.rankedDonors);
+      setAiAvailable(data.aiAvailable !== false);
     } catch (err) {
-      toast.error("Failed to load matching donors");
+      toast.error(err.response?.data?.message || "Failed to load matching donors");
     } finally {
       setLoadingDonors(false);
     }
@@ -156,20 +156,38 @@ const RequestsTab = () => {
 
       {/* Assign Donor Modal */}
       <Modal isOpen={!!assignModal} onClose={() => setAssignModal(null)} title={`Assign Donor — ${assignModal?.bloodGroup} for ${assignModal?.patientName}`}>
+        {!aiAvailable && !loadingDonors && (
+          <p className="text-xs text-orange-500 bg-orange-50 rounded-lg p-2 mb-3">
+            AI ranking service unavailable — showing unranked candidates.
+          </p>
+        )}
         {loadingDonors ? (
           <p className="text-gray-400 text-sm">Finding matching donors...</p>
         ) : matchingDonors.length === 0 ? (
-          <p className="text-gray-400 text-sm">No available, eligible donors match this blood group and district.</p>
+          <p className="text-gray-400 text-sm">No available, eligible donors match this blood group.</p>
         ) : (
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {matchingDonors.map((d) => (
-              <div key={d._id} className="flex justify-between items-center border border-gray-100 rounded-lg p-3">
+              <div key={d.donor_id} className="flex justify-between items-center border border-gray-100 rounded-lg p-3">
                 <div>
-                  <p className="font-medium text-gray-700 text-sm">{d.userId?.fullName}</p>
-                  <p className="text-xs text-gray-400">{d.userId?.district} · {d.userId?.phone}</p>
+                  <p className="font-medium text-gray-700 text-sm">{d.fullName}</p>
+                  <p className="text-xs text-gray-400">{d.district} · {d.phone}</p>
+                  {d.match_score !== null && d.match_score !== undefined && (
+                    <span
+                      className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        d.match_score >= 0.7
+                          ? "bg-green-100 text-green-700"
+                          : d.match_score >= 0.4
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {Math.round(d.match_score * 100)}% match
+                    </span>
+                  )}
                 </div>
                 <button
-                  onClick={() => handleAssign(d._id)}
+                  onClick={() => handleAssign(d.donor_id)}
                   className="text-xs bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg transition"
                 >
                   Assign
