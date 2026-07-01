@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import toast from "react-hot-toast";
+import { Thermometer, AlertTriangle, Activity, Droplets } from "lucide-react";
 import api from "../../api/axios";
+import StatCard from "../../components/StatCard";
 
 const ALERT_THRESHOLD = 6.0;
 
@@ -17,92 +19,75 @@ const TemperatureMonitor = () => {
       const { data } = await api.get("/temperature/mine?limit=20");
       setLogs(data.logs);
       setAlertCount(data.alertCount);
-    } catch (err) {
-      toast.error("Failed to load temperature history");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Failed to load temperature data"); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchLogs();
-  }, []);
+  useEffect(() => { fetchLogs(); }, []);
 
   const handleSimulate = async () => {
     setSimulating(true);
     try {
       const { data } = await api.post("/temperature/simulate");
-      if (data.alertTriggered) {
-        toast.error(`Cold-chain alert! Reading: ${data.temperature}°C`);
-      } else {
-        toast.success(`New reading: ${data.temperature}°C`);
-      }
+      data.alertTriggered
+        ? toast.error(`Alert! ${data.temperature}°C — exceeds safe threshold`)
+        : toast.success(`Reading recorded: ${data.temperature}°C`);
       fetchLogs();
-    } catch (err) {
-      toast.error("Failed to simulate reading");
-    } finally {
-      setSimulating(false);
-    }
+    } catch { toast.error("Failed to simulate reading"); }
+    finally { setSimulating(false); }
   };
 
-  // Chart wants oldest-to-newest left-to-right; API returns newest-first
-  const chartData = [...logs]
-    .reverse()
-    .map((l) => ({
-      time: new Date(l.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      temperature: l.temperature,
-    }));
-
   const latest = logs[0];
+  const chartData = [...logs].reverse().map(l => ({
+    time: new Date(l.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    temperature: l.temperature,
+  }));
+
+  const avgTemp = logs.length ? (logs.reduce((a, b) => a + b.temperature, 0) / logs.length).toFixed(1) : null;
+  const maxTemp = logs.length ? Math.max(...logs.map(l => l.temperature)) : null;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-gray-800">Cold-Chain Monitor</h2>
-          <p className="text-sm text-gray-400">Simulated IoT temperature sensor readings</p>
-        </div>
-        <button
-          onClick={handleSimulate}
-          disabled={simulating}
-          className="text-sm bg-brand-600 hover:bg-brand-700 text-white font-medium px-4 py-2 rounded-lg transition disabled:opacity-50"
-        >
-          {simulating ? "Reading..." : "Simulate Reading"}
-        </button>
+    <div className="h-full flex flex-col gap-4">
+      <div className="grid grid-cols-4 gap-3">
+        <StatCard label="Latest Reading" value={latest ? `${latest.temperature}°C` : "—"} icon={Thermometer} accent={latest?.alertTriggered ? "#ef4444" : "#059669"} />
+        <StatCard label="Avg Temperature" value={avgTemp ? `${avgTemp}°C` : "—"} icon={Activity} accent="#059669" />
+        <StatCard label="Max Recorded" value={maxTemp ? `${maxTemp}°C` : "—"} icon={Droplets} accent="#f59e0b" />
+        <StatCard label="Total Alerts" value={alertCount} icon={AlertTriangle} accent="#ef4444" />
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
-          <p className="text-xs text-gray-400">Latest Reading</p>
-          <p className={`text-xl font-bold ${latest?.alertTriggered ? "text-red-600" : "text-gray-700"}`}>
-            {latest ? `${latest.temperature}°C` : "—"}
-          </p>
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm flex-1 flex flex-col card-bank overflow-hidden">
+        <div className="flex justify-between items-center px-5 py-3 border-b border-slate-100">
+          <div>
+            <h2 className="font-semibold text-slate-700">Cold-Chain Temperature Trend</h2>
+            <p className="text-xs text-slate-400">Safe range: 2–{ALERT_THRESHOLD}°C · {logs.length} readings</p>
+          </div>
+          <button
+            onClick={handleSimulate}
+            disabled={simulating}
+            className="flex items-center gap-1.5 text-xs font-medium text-white px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50"
+          >
+            <Thermometer size={12} />
+            {simulating ? "Reading..." : "Simulate Reading"}
+          </button>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
-          <p className="text-xs text-gray-400">Safe Threshold</p>
-          <p className="text-xl font-bold text-gray-700">≤ {ALERT_THRESHOLD}°C</p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
-          <p className="text-xs text-gray-400">Total Alerts</p>
-          <p className={`text-xl font-bold ${alertCount > 0 ? "text-red-600" : "text-gray-700"}`}>{alertCount}</p>
+        <div className="flex-1 p-4">
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-slate-400 text-sm">Loading...</div>
+          ) : chartData.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-slate-400 text-sm">No readings yet. Click "Simulate Reading" to begin.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <XAxis dataKey="time" tick={{ fontSize: 11 }} />
+                <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <ReferenceLine y={ALERT_THRESHOLD} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "Alert threshold", position: "insideTopRight", fontSize: 10, fill: "#ef4444" }} />
+                <Line type="monotone" dataKey="temperature" stroke="#059669" strokeWidth={2} dot={{ r: 3, fill: "#059669" }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
-
-      {loading ? (
-        <p className="text-gray-400 text-sm">Loading...</p>
-      ) : chartData.length === 0 ? (
-        <p className="text-gray-400 text-sm">No readings yet. Click "Simulate Reading" to generate one.</p>
-      ) : (
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={chartData}>
-            <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-            <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <ReferenceLine y={ALERT_THRESHOLD} stroke="#dc2626" strokeDasharray="4 4" label={{ value: "Alert threshold", position: "insideTopRight", fontSize: 10, fill: "#dc2626" }} />
-            <Line type="monotone" dataKey="temperature" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      )}
     </div>
   );
 };

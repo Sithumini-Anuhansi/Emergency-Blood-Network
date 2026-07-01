@@ -72,104 +72,76 @@ const OverviewTab = () => {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {topStats.map((s) => (
-          <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <p className="text-sm text-gray-400">{s.label}</p>
-            <p className="text-2xl font-bold text-gray-700">{s.value}</p>
+    <div className="h-full flex flex-col gap-4">
+      {/* Stat row */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "Total Donors", value: donors.length, color: "#dc2626" },
+          { label: "Total Hospitals", value: hospitals.length, color: "#2563eb" },
+          { label: "Total Requests", value: requests.length, color: "#7c3aed" },
+          { label: "Fulfilled", value: requests.filter(r => r.requestStatus === "fulfilled").length, color: "#059669" },
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4" style={{ borderLeft: `3px solid ${s.color}` }}>
+            <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">{s.label}</p>
+            <p className="num text-2xl font-bold text-slate-800 mt-1">{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-semibold text-gray-600 mb-4">Requests by Status</h3>
-          <ResponsiveContainer width="100%" height={260}>
+      {/* Charts grid — 2x2, fixed heights */}
+      <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 card-admin flex flex-col">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Requests by Status</h3>
+          <ResponsiveContainer width="100%" height={180}>
             <PieChart>
-              <Pie data={statusCounts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                {statusCounts.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
+              <Pie data={statusCounts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+                {statusCounts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip /><Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-sm font-semibold text-gray-600 mb-4">Donors by Blood Group</h3>
-          <ResponsiveContainer width="100%" height={260}>
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 card-donor flex flex-col">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Donors by Blood Group</h3>
+          <ResponsiveContainer width="100%" height={180}>
             <BarChart data={bloodGroupData}>
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="value" fill="#dc2626" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" fill="#dc2626" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-2">
-          <h3 className="text-sm font-semibold text-gray-600 mb-4">Requests by Urgency</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={urgencyCounts} layout="vertical">
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={70} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-2">
-          <h3 className="text-sm font-semibold text-gray-600 mb-4">Donor Growth Over Time</h3>
-          {donorGrowth.length === 0 ? (
-            <p className="text-gray-400 text-sm py-8 text-center">Not enough historical data yet.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={donorGrowth}>
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Area type="monotone" dataKey="totalDonors" stroke="#22c55e" fill="#22c55e" fillOpacity={0.15} strokeWidth={2} name="Total Donors" />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-2">
-          <h3 className="text-sm font-semibold text-gray-600 mb-4">Blood Demand by District</h3>
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 card-bank flex flex-col">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Blood Demand by District</h3>
           {demandByDistrict.length === 0 ? (
-            <p className="text-gray-400 text-sm py-8 text-center">No requests recorded yet.</p>
+            <p className="text-slate-400 text-xs flex-1 flex items-center">No data yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={demandByDistrict} layout="vertical" margin={{ left: 10 }}>
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
-                <YAxis type="category" dataKey="district" tick={{ fontSize: 12 }} width={90} />
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={demandByDistrict} layout="vertical">
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="district" tick={{ fontSize: 10 }} width={80} />
                 <Tooltip />
-                <Bar dataKey="totalUnitsRequested" fill="#a855f7" radius={[0, 4, 4, 0]} name="Units Requested" />
+                <Bar dataKey="totalUnitsRequested" fill="#059669" radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 md:col-span-2">
-          <h3 className="text-sm font-semibold text-gray-600 mb-4">Cold-Chain Temperature Trends (Daily Average)</h3>
-          {temperatureTrends.length === 0 ? (
-            <p className="text-gray-400 text-sm py-8 text-center">
-              No temperature readings yet. Use the Blood Bank dashboard's "Simulate Reading" button or run the IoT simulator script.
-            </p>
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 card-hospital flex flex-col">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Donor Growth</h3>
+          {donorGrowth.length === 0 ? (
+            <p className="text-slate-400 text-xs flex-1 flex items-center">Not enough data yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={temperatureTrends}>
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis domain={["auto", "auto"]} tick={{ fontSize: 12 }} />
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart data={donorGrowth}>
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <ReferenceLine y={6} stroke="#dc2626" strokeDasharray="4 4" label={{ value: "Alert threshold", position: "insideTopRight", fontSize: 10, fill: "#dc2626" }} />
-                <Line type="monotone" dataKey="avgTemp" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="Avg Temp (°C)" />
-                <Line type="monotone" dataKey="maxTemp" stroke="#f97316" strokeWidth={1.5} strokeDasharray="3 3" dot={false} name="Max Temp (°C)" />
-              </LineChart>
+                <Area type="monotone" dataKey="totalDonors" stroke="#2563eb" fill="#2563eb" fillOpacity={0.12} strokeWidth={2} />
+              </AreaChart>
             </ResponsiveContainer>
           )}
         </div>

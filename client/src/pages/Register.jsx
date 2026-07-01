@@ -10,181 +10,143 @@ const roleHomeMap = {
   bloodbank: "/bloodbank/dashboard",
   admin: "/admin/dashboard",
 };
-
-const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const ROLE_CONFIG = {
+  donor:     { color: "#dc2626", label: "Donor" },
+  hospital:  { color: "#2563eb", label: "Hospital" },
+  bloodbank: { color: "#059669", label: "Blood Bank" },
+};
 
 const Register = () => {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm({
-    defaultValues: { role: "donor" },
-  });
+  const { register, handleSubmit, watch, formState: { errors } } = useForm({ defaultValues: { role: "donor" } });
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-
-  const selectedRole = watch("role");
+  const role = watch("role");
+  const roleConf = ROLE_CONFIG[role] || ROLE_CONFIG.donor;
 
   const onSubmit = async (formData) => {
     setSubmitting(true);
     try {
-      const payload = {
-        fullName: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-        phone: formData.phone,
-        district: formData.district,
-      };
-
-      if (formData.role === "donor") {
-        payload.profileData = {
-          nic: formData.nic,
-          bloodGroup: formData.bloodGroup,
-          gender: formData.gender,
-          age: Number(formData.age),
-          weight: Number(formData.weight),
-        };
-      } else if (formData.role === "hospital") {
-        payload.profileData = {
-          hospitalName: formData.orgName,
-          address: formData.address,
-        };
-      } else if (formData.role === "bloodbank") {
-        payload.profileData = {
-          bloodBankName: formData.orgName,
-          address: formData.address,
-        };
-      }
-
+      const payload = { fullName: formData.fullName, email: formData.email, password: formData.password, role: formData.role, phone: formData.phone, district: formData.district };
+      if (formData.role === "donor") payload.profileData = { nic: formData.nic, bloodGroup: formData.bloodGroup, gender: formData.gender, age: Number(formData.age), weight: Number(formData.weight) };
+      else if (formData.role === "hospital") payload.profileData = { hospitalName: formData.orgName, address: formData.address };
+      else if (formData.role === "bloodbank") payload.profileData = { bloodBankName: formData.orgName, address: formData.address };
       const user = await registerUser(payload);
-      toast.success("Account created successfully");
+      toast.success("Account created!");
       navigate(roleHomeMap[user.role] || "/");
     } catch (err) {
       toast.error(err.response?.data?.message || "Registration failed");
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  const inputClass =
-    "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
-  const errorClass = "text-red-500 text-xs mt-1";
+  const inp = "w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 transition";
+  const lbl = "block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-white px-4 py-8">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl p-8">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-brand-700">Create an Account</h1>
-          <p className="text-gray-500 text-sm mt-1">Join the Emergency Blood Network</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-xl bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        {/* Role selector header */}
+        <div className="p-6 pb-4 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Create Account</h2>
+          <div className="flex gap-2">
+            {Object.entries(ROLE_CONFIG).map(([r, c]) => (
+              <label
+                key={r}
+                className={`flex-1 flex items-center gap-2 p-2.5 rounded-xl border-2 cursor-pointer transition ${role === r ? "border-current" : "border-slate-200 text-slate-400"}`}
+                style={{ color: role === r ? c.color : undefined, borderColor: role === r ? c.color : undefined }}
+              >
+                <input type="radio" {...register("role")} value={r} className="hidden" />
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: role === r ? c.color : "#cbd5e1" }} />
+                <span className="text-sm font-semibold">{c.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Role selector */}
-          <div>
-            <label className={labelClass}>I am registering as a</label>
-            <select {...register("role")} className={inputClass}>
-              <option value="donor">Donor</option>
-              <option value="hospital">Hospital</option>
-              <option value="bloodbank">Blood Bank</option>
-            </select>
-          </div>
-
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           {/* Common fields */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>Full Name</label>
-              <input {...register("fullName", { required: "Required" })} className={inputClass} />
-              {errors.fullName && <p className={errorClass}>{errors.fullName.message}</p>}
+              <label className={lbl}>Full Name</label>
+              <input {...register("fullName", { required: "Required" })} className={inp} />
+              {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
             </div>
             <div>
-              <label className={labelClass}>Phone</label>
-              <input {...register("phone", { required: "Required" })} className={inputClass} />
-              {errors.phone && <p className={errorClass}>{errors.phone.message}</p>}
+              <label className={lbl}>Phone</label>
+              <input {...register("phone", { required: "Required" })} className={inp} />
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+            </div>
+          </div>
+          <div>
+            <label className={lbl}>Email</label>
+            <input type="email" {...register("email", { required: "Required" })} className={inp} />
+            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Password</label>
+              <input type="password" {...register("password", { required: "Required", minLength: { value: 6, message: "Min 6 characters" } })} className={inp} />
+              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+            </div>
+            <div>
+              <label className={lbl}>District</label>
+              <input {...register("district", { required: "Required" })} className={inp} placeholder="e.g. Colombo" />
+              {errors.district && <p className="text-red-500 text-xs mt-1">{errors.district.message}</p>}
             </div>
           </div>
 
-          <div>
-            <label className={labelClass}>Email</label>
-            <input type="email" {...register("email", { required: "Required" })} className={inputClass} />
-            {errors.email && <p className={errorClass}>{errors.email.message}</p>}
-          </div>
-
-          <div>
-            <label className={labelClass}>Password</label>
-            <input
-              type="password"
-              {...register("password", { required: "Required", minLength: { value: 6, message: "Min 6 characters" } })}
-              className={inputClass}
-            />
-            {errors.password && <p className={errorClass}>{errors.password.message}</p>}
-          </div>
-
-          <div>
-            <label className={labelClass}>District</label>
-            <input {...register("district", { required: "Required" })} className={inputClass} placeholder="e.g. Gampaha" />
-            {errors.district && <p className={errorClass}>{errors.district.message}</p>}
-          </div>
-
-          {/* Donor-specific fields */}
-          {selectedRole === "donor" && (
-            <div className="border-t pt-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-600">Donor Details</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>NIC</label>
-                  <input {...register("nic", { required: "Required" })} className={inputClass} />
-                  {errors.nic && <p className={errorClass}>{errors.nic.message}</p>}
-                </div>
-                <div>
-                  <label className={labelClass}>Blood Group</label>
-                  <select {...register("bloodGroup", { required: "Required" })} className={inputClass}>
-                    <option value="">Select</option>
-                    {bloodGroups.map((bg) => (
-                      <option key={bg} value={bg}>{bg}</option>
-                    ))}
-                  </select>
-                  {errors.bloodGroup && <p className={errorClass}>{errors.bloodGroup.message}</p>}
-                </div>
-              </div>
+          {/* Role-specific fields */}
+          {role === "donor" && (
+            <div className="bg-red-50 rounded-xl p-4 space-y-3 border border-red-100">
+              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Donor Details</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className={labelClass}>Gender</label>
-                  <select {...register("gender", { required: "Required" })} className={inputClass}>
+                  <label className={lbl}>NIC</label>
+                  <input {...register("nic", { required: "Required" })} className={inp} />
+                </div>
+                <div>
+                  <label className={lbl}>Blood Group</label>
+                  <select {...register("bloodGroup", { required: "Required" })} className={inp}>
+                    <option value="">Select</option>
+                    {BLOOD_GROUPS.map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>Gender</label>
+                  <select {...register("gender", { required: "Required" })} className={inp}>
                     <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelClass}>Age</label>
-                  <input type="number" {...register("age", { required: "Required" })} className={inputClass} />
+                  <label className={lbl}>Age</label>
+                  <input type="number" {...register("age", { required: "Required" })} className={inp} />
                 </div>
                 <div>
-                  <label className={labelClass}>Weight (kg)</label>
-                  <input type="number" {...register("weight", { required: "Required" })} className={inputClass} />
+                  <label className={lbl}>Weight (kg)</label>
+                  <input type="number" {...register("weight", { required: "Required" })} className={inp} />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Hospital / BloodBank shared fields */}
-          {(selectedRole === "hospital" || selectedRole === "bloodbank") && (
-            <div className="border-t pt-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-600">
-                {selectedRole === "hospital" ? "Hospital Details" : "Blood Bank Details"}
+          {(role === "hospital" || role === "bloodbank") && (
+            <div className="rounded-xl p-4 space-y-3 border" style={{ backgroundColor: roleConf.color + "08", borderColor: roleConf.color + "30" }}>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: roleConf.color }}>
+                {role === "hospital" ? "Hospital" : "Blood Bank"} Details
               </p>
               <div>
-                <label className={labelClass}>
-                  {selectedRole === "hospital" ? "Hospital Name" : "Blood Bank Name"}
-                </label>
-                <input {...register("orgName", { required: "Required" })} className={inputClass} />
-                {errors.orgName && <p className={errorClass}>{errors.orgName.message}</p>}
+                <label className={lbl}>{role === "hospital" ? "Hospital Name" : "Blood Bank Name"}</label>
+                <input {...register("orgName", { required: "Required" })} className={inp} />
               </div>
               <div>
-                <label className={labelClass}>Address</label>
-                <input {...register("address", { required: "Required" })} className={inputClass} />
-                {errors.address && <p className={errorClass}>{errors.address.message}</p>}
+                <label className={lbl}>Address</label>
+                <input {...register("address", { required: "Required" })} className={inp} />
               </div>
             </div>
           )}
@@ -192,17 +154,16 @@ const Register = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2.5 rounded-lg transition disabled:opacity-50 mt-2"
+            className="w-full text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 text-sm"
+            style={{ backgroundColor: roleConf.color }}
           >
             {submitting ? "Creating account..." : "Create Account"}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-slate-400 pb-6">
           Already have an account?{" "}
-          <Link to="/login" className="text-brand-600 font-medium hover:underline">
-            Sign in
-          </Link>
+          <Link to="/login" className="font-semibold hover:underline" style={{ color: roleConf.color }}>Sign in</Link>
         </p>
       </div>
     </div>
