@@ -1,132 +1,142 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { Activity, Plus, ClipboardList, Building2, CheckCircle, XCircle, Clock } from "lucide-react";
 import api from "../../api/axios";
-import Navbar from "../../components/Navbar";
+import DashboardLayout from "../../components/DashboardLayout";
+import StatCard from "../../components/StatCard";
 import StatusBadge from "../../components/StatusBadge";
 import CreateRequestModal from "./CreateRequestModal";
 
+const ACCENT = "#2563eb";
+
+const navItems = [
+  { id: "requests", label: "Blood Requests", icon: ClipboardList },
+  { id: "profile", label: "Hospital Profile", icon: Building2 },
+];
+
 const HospitalDashboard = () => {
   const [requests, setRequests] = useState([]);
+  const [hospital, setHospital] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState("requests");
   const [modalOpen, setModalOpen] = useState(false);
 
-  const fetchRequests = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/requests/mine");
-      setRequests(data);
-    } catch (err) {
-      toast.error("Failed to load requests");
-    } finally {
-      setLoading(false);
-    }
+      const [rRes, hRes] = await Promise.all([
+        api.get("/requests/mine"),
+        api.get("/hospitals/me"),
+      ]);
+      setRequests(rRes.data);
+      setHospital(hRes.data);
+    } catch { toast.error("Failed to load data"); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleCancel = async (id) => {
     if (!window.confirm("Cancel this request?")) return;
     try {
       await api.put(`/requests/${id}/cancel`);
       toast.success("Request cancelled");
-      fetchRequests();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to cancel");
-    }
+      fetchData();
+    } catch { toast.error("Failed to cancel"); }
   };
 
   const stats = {
     total: requests.length,
-    pending: requests.filter((r) => r.requestStatus === "pending").length,
-    matched: requests.filter((r) => r.requestStatus === "matched").length,
-    fulfilled: requests.filter((r) => r.requestStatus === "fulfilled").length,
+    pending: requests.filter(r => r.requestStatus === "pending").length,
+    matched: requests.filter(r => r.requestStatus === "matched").length,
+    fulfilled: requests.filter(r => r.requestStatus === "fulfilled").length,
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar title="Hospital Dashboard" />
-
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Total Requests", value: stats.total, color: "text-gray-700" },
-            { label: "Pending", value: stats.pending, color: "text-yellow-600" },
-            { label: "Matched", value: stats.matched, color: "text-blue-600" },
-            { label: "Fulfilled", value: stats.fulfilled, color: "text-green-600" },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <p className="text-sm text-gray-400">{s.label}</p>
-              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-gray-800">Your Blood Requests</h2>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
-          >
-            + New Request
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          {loading ? (
-            <p className="p-6 text-gray-400 text-sm">Loading...</p>
-          ) : requests.length === 0 ? (
-            <p className="p-6 text-gray-400 text-sm">No requests yet. Create one to get started.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-left">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Patient</th>
-                  <th className="px-4 py-3 font-medium">Blood Group</th>
-                  <th className="px-4 py-3 font-medium">Units</th>
-                  <th className="px-4 py-3 font-medium">Urgency</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Assigned Donor</th>
-                  <th className="px-4 py-3 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {requests.map((r) => (
-                  <tr key={r._id}>
-                    <td className="px-4 py-3 text-gray-700">{r.patientName}</td>
-                    <td className="px-4 py-3 font-semibold text-brand-600">{r.bloodGroup}</td>
-                    <td className="px-4 py-3 text-gray-700">{r.unitsRequired}</td>
-                    <td className="px-4 py-3"><StatusBadge value={r.urgency} /></td>
-                    <td className="px-4 py-3"><StatusBadge value={r.requestStatus} /></td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {r.assignedDonor ? r.assignedDonor.userId?.fullName : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {r.requestStatus === "pending" && (
-                        <button
-                          onClick={() => handleCancel(r._id)}
-                          className="text-xs text-red-500 hover:underline"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      <CreateRequestModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onCreated={fetchRequests}
-      />
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>
+  );
+
+  return (
+    <DashboardLayout navItems={navItems} activeSection={section} onSectionChange={setSection}>
+      {section === "requests" && (
+        <div className="h-full flex flex-col gap-4">
+          <div className="grid grid-cols-4 gap-3">
+            <StatCard label="Total" value={stats.total} icon={Activity} accent={ACCENT} />
+            <StatCard label="Pending" value={stats.pending} icon={Clock} accent="#f59e0b" />
+            <StatCard label="Matched" value={stats.matched} icon={CheckCircle} accent={ACCENT} />
+            <StatCard label="Fulfilled" value={stats.fulfilled} icon={CheckCircle} accent="#10b981" />
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-100 shadow-sm flex-1 flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-3 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-700">Blood Requests</h2>
+              <button
+                onClick={() => setModalOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-medium text-white px-3 py-1.5 rounded-lg transition-colors"
+                style={{ backgroundColor: ACCENT }}
+              >
+                <Plus size={14} /> New Request
+              </button>
+            </div>
+            {requests.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">No requests yet. Create one to get started.</div>
+            ) : (
+              <div className="overflow-auto flex-1">
+                <table className="ebn-table">
+                  <thead>
+                    <tr>
+                      <th>Patient</th><th>Blood Group</th><th>Units</th><th>Urgency</th><th>Status</th><th>Assigned Donor</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requests.map(r => (
+                      <tr key={r._id}>
+                        <td className="font-medium">{r.patientName}</td>
+                        <td><span className="num font-bold text-blue-600">{r.bloodGroup}</span></td>
+                        <td className="num">{r.unitsRequired}</td>
+                        <td><StatusBadge value={r.urgency} /></td>
+                        <td><StatusBadge value={r.requestStatus} /></td>
+                        <td className="text-slate-400">{r.assignedDonor?.userId?.fullName || "—"}</td>
+                        <td>
+                          {r.requestStatus === "pending" && (
+                            <button onClick={() => handleCancel(r._id)} className="text-xs text-red-500 hover:underline">Cancel</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {section === "profile" && hospital && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 card-hospital max-w-lg">
+          <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-4">Hospital Profile</p>
+          <h2 className="text-xl font-bold text-slate-800 mb-1">{hospital.hospitalName}</h2>
+          <p className="text-sm text-slate-500 mb-4">{hospital.address}</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "District", val: hospital.district },
+              { label: "Phone", val: hospital.phone },
+              { label: "Email", val: hospital.email },
+              { label: "Status", val: hospital.approved ? "Approved" : "Pending Approval" },
+            ].map(f => (
+              <div key={f.label} className="bg-slate-50 rounded-lg p-3">
+                <p className="text-xs text-slate-400">{f.label}</p>
+                <p className="text-sm font-semibold text-slate-700">{f.val}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <CreateRequestModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onCreated={fetchData} />
+    </DashboardLayout>
   );
 };
 
